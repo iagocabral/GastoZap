@@ -1,0 +1,177 @@
+{
+    "titular": null,
+    "numero_cartao": null,
+    "data_fechamento": null,
+    "valor_total": "6815.23",
+    "data_processamento": "2025-07-01 14:19:55",
+    "transacoes": [
+        {
+            "data": "21/05",
+            "descricao": "PGTO. CASH AG.",
+            "valor": 4885.0,
+            "categoria": null
+        },
+        {
+            "data": "27/05",
+            "descricao": "",
+            "valor": 0.0,
+            "categoria": null
+        },
+        {
+            "data": "23/05",
+            "descricao": "BURGER KING            BRASILIA BR R$",
+            "valor": 14.99,
+            "categoria": null
+        },
+        {
+            "data": "25/05",
+            "descricao": "ApacheGuara            BRASILIA BR R$",
+            "valor": 65.0,
+            "categoria": null
+        },
+        {
+            "data": "27/05",
+            "descricao": "MP*DISTRITONATURAL     OSASCO BR R$",
+            "valor": 26.0,
+            "categoria": null
+        },
+        {
+            "data": "29/05",
+            "descricao": "UNIQUE FOODS           BRASILIA BR R$",
+            "valor": 29.9,
+            "categoria": null
+        },
+        {
+            "data": "30/05",
+            "descricao": "ASA SUL",
+            "valor": 114.0,
+            "categoria": null
+        },
+        {
+            "data": "31/05",
+            "descricao": "ASA SUL",
+            "valor": 114.0,
+            "categoria": null
+        },
+        {
+            "data": "05/06",
+            "descricao": "MP*DISTRITONATURAL     OSASCO BR R$",
+            "valor": 41.0,
+            "categoria": null
+        },
+        {
+            "data": "24/05",
+            "descricao": "DROGARIA BRASIL        BRASILIA BR R$",
+            "valor": 35.36,
+            "categoria": "Saúde"
+        },
+        {
+            "data": "22/05",
+            "descricao": "REDE CINCO ESTRELAS    BRASILIA BR R$",
+            "valor": 100.0,
+            "categoria": null
+        },
+        {
+            "data": "22/05",
+            "descricao": "APPLE.COM/BILL         SAO PAULO BR R$",
+            "valor": 21.9,
+            "categoria": null
+        },
+        {
+            "data": "28/05",
+            "descricao": "MP*CREDITT             OSASCO BR R$",
+            "valor": 89.9,
+            "categoria": null
+        },
+        {
+            "data": "28/05",
+            "descricao": "ALLPARK EMPREENDIMENTOSBrasilia BR R$",
+            "valor": 10.0,
+            "categoria": null
+        },
+        {
+            "data": "30/05",
+            "descricao": "COBASI                 BRASILIA BR R$",
+            "valor": 27.9,
+            "categoria": null
+        },
+        {
+            "data": "30/05",
+            "descricao": "POSTO SAO RAFAEL       BRASILIA BR R$",
+            "valor": 100.0,
+            "categoria": null
+        },
+        {
+            "data": "02/06",
+            "descricao": "MP*ACASADOSREPAR       OSASCO BR R$",
+            "valor": 100.0,
+            "categoria": null
+        },
+        {
+            "data": "03/06",
+            "descricao": "MP*RMBORTOLETOCOMPONENTOSASCO BR R$",
+            "valor": 669.6,
+            "categoria": null
+        },
+        {
+            "data": "03/06",
+            "descricao": "EBN*CRUNCHYROLL        CURITIBA BR R$",
+            "valor": 14.99,
+            "categoria": null
+        },
+        {
+            "data": "10/06",
+            "descricao": "MAISPET  DF  BRASILI   BRASILIA BR R$",
+            "valor": 99.9,
+            "categoria": null
+        },
+        {
+            "data": "10/06",
+            "descricao": "LIVELO*Clube Live      SANTANA DE PA BR R$",
+            "valor": 44.9,
+            "categoria": null
+        },
+        {
+            "data": "13/06",
+            "descricao": "APPLE.COM/BILL         SAO PAULO BR R$",
+            "valor": 14.9,
+            "categoria": null
+        },
+        {
+            "data": "14/06",
+            "descricao": "APPLE.COM/BILL         SAO PAULO BR R$",
+            "valor": 27.9,
+            "categoria": null
+        },
+        {
+            "data": "27/05",
+            "descricao": "CARREFOUR - BRASILIA S BRASILIA BR R$",
+            "valor": 117.29,
+            "categoria": null
+        },
+        {
+            "data": "08/06",
+            "descricao": "AmazonPrimeBR          SAO PAULO BR R$",
+            "valor": 19.9,
+            "categoria": null
+        },
+        {
+            "data": "10/06",
+            "descricao": "DL*GOOGLE YouTub       SAO PAULO BR R$",
+            "valor": 26.9,
+            "categoria": null
+        },
+        {
+            "data": "16/06",
+            "descricao": "ANUIDADE DIFERENCIADA TIT-PARC",
+            "valor": 2.0,
+            "categoria": null
+        },
+        {
+            "data": "08/05",
+            "descricao": "MODA MUNDIAL* PARC",
+            "valor": 2.0,
+            "categoria": null
+        }
+    ]
+}
