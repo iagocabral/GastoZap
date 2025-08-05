@@ -2,6 +2,7 @@ import PyPDF2
 import re
 from typing import Dict, List, Any, Optional
 import logging
+from datetime import datetime
 from app.models.invoice import Fatura, Transacao
 from app.utils.pdf_utils import PDFValidator
 from app.utils.bank_detector import BankDetector
@@ -16,11 +17,11 @@ class PDFExtractor:
     # Mapeamento de bancos para expressões regulares específicas
     BANK_EXTRACTORS = {
         'banco_do_brasil': {
-            'titular': r"([A-Z\s]+)\s+\(Cartão\s+\d+\)",
+            'titular': r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+\(Cartão\s+\d+\)",
             'numero_cartao': r"Cartão\s+(\d+)",
-            'data_fechamento': r"Data\s+Descrição.*?País\s+Valor.*?(\d{2}/\d{2})",
+            'data_fechamento': None,  # Será extraído através de lógica específica
             'data_vencimento': r"Vencimento\s*(\d{2}/\d{2}/\d{4})",
-            'valor_total': r"R\$\s*([\d\.,]+)$",
+            'valor_total': r"Total.*?R\$\s*([\d\.,]+)",
             'transacao_pattern': r"(\d{2}/\d{2})\s+([^R$]+?)\s+(?:BR\s+)?R\$\s*([\d\.,]+)"
         },
         # Outros bancos serão adicionados no futuro
@@ -71,7 +72,13 @@ class PDFExtractor:
                 # Extrai informações básicas usando expressões regulares específicas do banco
                 fatura.titular = self._extract_pattern(full_text, patterns.get('titular', r"Nome:\s*([^\n]*)"))
                 fatura.numero_cartao = self._extract_pattern(full_text, patterns.get('numero_cartao', r"Cartão:\s*([•\*\d]+)"))
-                fatura.data_fechamento = self._extract_pattern(full_text, patterns.get('data_fechamento', r"Fechamento:\s*(\d{2}/\d{2}/\d{4})"))
+                
+                # Para data de fechamento do BB, usa lógica específica
+                if bank_id == 'banco_do_brasil':
+                    fatura.data_fechamento = self._extract_bb_closing_date(full_text)
+                else:
+                    fatura.data_fechamento = self._extract_pattern(full_text, patterns.get('data_fechamento', r"Fechamento:\s*(\d{2}/\d{2}/\d{4})"))
+                
                 fatura.data_vencimento = self._extract_pattern(full_text, patterns.get('data_vencimento', r"Vencimento\s*(\d{2}/\d{2}/\d{4})"))
                 fatura.valor_total = self._extract_pattern(full_text, patterns.get('valor_total', r"Total\s*R\$\s*([\d\.,]+)"))
                 
@@ -230,20 +237,47 @@ class PDFExtractor:
         # Divide o texto em linhas para processamento linha por linha
         lines = text.split('\n')
         
+        # Estados para controlar quando estamos em seções de transações
+        in_transaction_section = False
+        
         for i, line in enumerate(lines):
             line = line.strip()
             
-            # Pula linhas vazias ou que não começam com data
-            if not re.match(r'^\d{2}/\d{2}', line):
-                continue
-                
-            # Pula linhas de cabeçalho ou informações que não são transações
-            if any(skip in line.upper() for skip in ['SALDO FATURA ANTERIOR', 'PAGAMENTOS/CRÉDITOS', 'DATA', 'DESCRIÇÃO']):
+            # Pula linhas vazias
+            if not line:
                 continue
             
-            # Padrão para linha de transação: DD/MM seguido de descrição e valor no final
-            # Exemplo: "27/05 O PARK DESINGDF BRASILIA BR R$ 159,90"
-            match = re.match(r'^(\d{2}/\d{2})\s+(.*?)\s+R\$\s*([\d\.,]+)$', line)
+            # Identifica início de seção de transações
+            if 'Data' in line and 'Descrição' in line and 'Valor' in line:
+                in_transaction_section = True
+                continue
+                
+            # Pula cabeçalhos e informações que não são transações
+            if any(skip in line.upper() for skip in [
+                'SALDO FATURA ANTERIOR', 
+                'PAGAMENTOS/CRÉDITOS', 
+                'LAZER', 
+                'RESTAURANTES',
+                'SAÚDE',
+                'SERVIÇOS',
+                'PÁGINA'
+            ]):
+                continue
+            
+            # Verifica se a linha contém uma transação válida
+            # Formato esperado: DD/MM DESCRIÇÃO CIDADE BR R$ VALOR
+            # Ou: DD/MM DESCRIÇÃO R$ VALOR
+            transaction_patterns = [
+                r'^(\d{2}/\d{2})\s+(.+?)\s+BR\s+R\$\s*([\d\.,]+)$',
+                r'^(\d{2}/\d{2})\s+(.+?)\s+R\$\s*([\d\.,]+)$',
+                r'^(\d{2}/\d{2})\s+(.+?)\s+([\d\.,]+)$'
+            ]
+            
+            match = None
+            for pattern in transaction_patterns:
+                match = re.match(pattern, line)
+                if match:
+                    break
             
             if match:
                 date = match.group(1)
@@ -259,7 +293,15 @@ class PDFExtractor:
                 
                 try:
                     # Converte o valor para float
-                    valor_float = float(value_text.replace('.', '').replace(',', '.'))
+                    # Remove pontos de milhares e converte vírgula para ponto decimal
+                    if ',' in value_text and '.' in value_text:
+                        # Formato: 1.234,56
+                        value_text = value_text.replace('.', '').replace(',', '.')
+                    elif ',' in value_text:
+                        # Formato: 234,56
+                        value_text = value_text.replace(',', '.')
+                    
+                    valor_float = float(value_text)
                     
                     # Cria o objeto Transacao
                     transacao = Transacao(
@@ -272,7 +314,7 @@ class PDFExtractor:
                     transactions.append(transacao)
                     
                 except ValueError:
-                    logger.warning(f"Não foi possível converter o valor '{value_text}' para float. Transação ignorada.")
+                    logger.warning(f"Não foi possível converter o valor '{value_text}' para float. Transação ignorada: {line}")
                     continue
         
         return transactions
@@ -301,6 +343,48 @@ class PDFExtractor:
         description = re.sub(r'\s+', ' ', description).strip()
         
         return description
+    
+    def _extract_bb_closing_date(self, text: str) -> Optional[str]:
+        """
+        Extrai a data de fechamento específica do Banco do Brasil.
+        No BB, a data de fechamento geralmente está no contexto das transações.
+        
+        Args:
+            text: Texto completo da fatura
+            
+        Returns:
+            Data de fechamento ou None se não encontrada
+        """
+        # Procura por padrões que indiquem data de fechamento
+        # No BB, geralmente está próximo ao início das transações
+        
+        # Padrão 1: Procura pela primeira data que aparece nas transações
+        # que seria próxima à data de fechamento
+        lines = text.split('\n')
+        transaction_dates = []
+        
+        for line in lines:
+            line = line.strip()
+            # Procura por linhas que começam com data
+            match = re.match(r'^(\d{2}/\d{2})', line)
+            if match:
+                date = match.group(1)
+                # Converte para formato completo assumindo o ano atual
+                current_year = datetime.now().year
+                try:
+                    # Adiciona o ano atual para formar data completa
+                    full_date = f"{date}/{current_year}"
+                    transaction_dates.append(full_date)
+                except:
+                    continue
+        
+        # Se encontrou datas de transação, usa a primeira como aproximação
+        if transaction_dates:
+            # Para uma fatura típica, a data de fechamento seria próxima
+            # à primeira transação do período
+            return transaction_dates[0]
+        
+        return None
         
     def _categorize_transaction(self, description: str) -> Optional[str]:
         """
