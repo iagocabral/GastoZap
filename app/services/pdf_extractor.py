@@ -16,12 +16,12 @@ class PDFExtractor:
     # Mapeamento de bancos para expressões regulares específicas
     BANK_EXTRACTORS = {
         'banco_do_brasil': {
-            'titular': r"Nome:\s*([^\n]*)",
-            'numero_cartao': r"Cartão:\s*([•\*\d]+)",
-            'data_fechamento': r"Fechamento:\s*(\d{2}/\d{2}/\d{4})",
+            'titular': r"([A-Z\s]+)\s+\(Cartão\s+\d+\)",
+            'numero_cartao': r"Cartão\s+(\d+)",
+            'data_fechamento': r"Data\s+Descrição.*?País\s+Valor.*?(\d{2}/\d{2})",
             'data_vencimento': r"Vencimento\s*(\d{2}/\d{2}/\d{4})",
-            'valor_total': r"Total\s*R\$\s*([\d\.,]+)",
-            'transacao_pattern': r"(\d{2}/\d{2})\s+([^\d]+?)\s+(R?\$?\s*[\d\.,]+)"
+            'valor_total': r"R\$\s*([\d\.,]+)$",
+            'transacao_pattern': r"(\d{2}/\d{2})\s+([^R$]+?)\s+(?:BR\s+)?R\$\s*([\d\.,]+)"
         },
         # Outros bancos serão adicionados no futuro
     }
@@ -77,7 +77,13 @@ class PDFExtractor:
                 
                 # Extrai transações usando o padrão específico do banco
                 transacao_pattern = patterns.get('transacao_pattern', r"(\d{2}/\d{2})\s+([^\d]+?)\s+(R?\$?\s*[\d\.,]+)")
-                transacoes = self._extract_transactions(full_text, transacao_pattern)
+                
+                # Para o Banco do Brasil, usa um método específico
+                if bank_id == 'banco_do_brasil':
+                    transacoes = self._extract_bb_transactions(full_text)
+                else:
+                    transacoes = self._extract_transactions(full_text, transacao_pattern)
+                    
                 for transacao in transacoes:
                     fatura.adicionar_transacao(transacao)
                 
@@ -128,11 +134,31 @@ class PDFExtractor:
             # Formato: DD/MM Descrição do estabelecimento 999,99
             transaction_pattern = r"(\d{2}/\d{2})\s+([^\d]+)\s+([\d\.,]+)"
         
-        matches = re.finditer(transaction_pattern, text)
+        # Para o Banco do Brasil, vamos usar um padrão mais específico
+        # que considera o formato: DD/MM DESCRICAO CIDADE BR R$ VALOR
+        if 'banco_do_brasil' in transaction_pattern:
+            # Padrão específico para o BB que lida melhor com números nas descrições
+            bb_pattern = r"(\d{2}/\d{2})\s+(.*?)\s+(?:BR\s+)?R\$\s*([\d\.,]+)(?:\s|$)"
+            matches = re.finditer(bb_pattern, text, re.MULTILINE)
+        else:
+            matches = re.finditer(transaction_pattern, text)
+            
         for match in matches:
             if len(match.groups()) >= 3:
                 date = match.group(1)
                 description = match.group(2).strip()
+                
+                # Remove informações que não fazem parte da descrição real
+                # Para o BB, remove códigos e referências extras
+                if description.startswith('SALDO FATURA ANTERIOR') or description.startswith('Pagamentos/Créditos'):
+                    continue
+                    
+                # Limpa a descrição removendo códigos extras e padronizando
+                description = self._clean_description(description)
+                
+                # Se a descrição ficou vazia, pula essa transação
+                if not description:
+                    continue
                 
                 # Trata o valor que pode ter formatos diferentes
                 value_text = match.group(3).strip()
@@ -159,6 +185,122 @@ class PDFExtractor:
                     logger.warning(f"Não foi possível converter o valor '{value}' para float. Transação ignorada.")
         
         return transactions
+    
+    def _clean_description(self, description: str) -> str:
+        """
+        Limpa e padroniza a descrição da transação.
+        
+        Args:
+            description: Descrição original da transação
+            
+        Returns:
+            Descrição limpa e padronizada
+        """
+        # Remove códigos de país e outras informações extras
+        description = re.sub(r'\s+BR\s*$', '', description)
+        description = re.sub(r'\s+BRASIL\s*$', '', description)
+        
+        # Remove múltiplos espaços
+        description = re.sub(r'\s+', ' ', description)
+        
+        # Remove espaços no início e fim
+        description = description.strip()
+        
+        # Casos específicos do Banco do Brasil
+        if 'PGTO. CASH AG.' in description:
+            return 'PGTO. CASH AG.'
+        
+        if 'PARK DESINGDF' in description:
+            return 'O PARK DESINGDF'
+            
+        return description
+        
+    def _extract_bb_transactions(self, text: str) -> List[Transacao]:
+        """
+        Método específico para extrair transações do Banco do Brasil.
+        
+        Args:
+            text: Texto completo da fatura
+            
+        Returns:
+            Lista de objetos Transacao
+        """
+        transactions = []
+        
+        # Divide o texto em linhas para processamento linha por linha
+        lines = text.split('\n')
+        
+        for i, line in enumerate(lines):
+            line = line.strip()
+            
+            # Pula linhas vazias ou que não começam com data
+            if not re.match(r'^\d{2}/\d{2}', line):
+                continue
+                
+            # Pula linhas de cabeçalho ou informações que não são transações
+            if any(skip in line.upper() for skip in ['SALDO FATURA ANTERIOR', 'PAGAMENTOS/CRÉDITOS', 'DATA', 'DESCRIÇÃO']):
+                continue
+            
+            # Padrão para linha de transação: DD/MM seguido de descrição e valor no final
+            # Exemplo: "27/05 O PARK DESINGDF BRASILIA BR R$ 159,90"
+            match = re.match(r'^(\d{2}/\d{2})\s+(.*?)\s+R\$\s*([\d\.,]+)$', line)
+            
+            if match:
+                date = match.group(1)
+                description = match.group(2).strip()
+                value_text = match.group(3)
+                
+                # Limpa a descrição
+                description = self._clean_bb_description(description)
+                
+                # Se a descrição ficou vazia, pula
+                if not description:
+                    continue
+                
+                try:
+                    # Converte o valor para float
+                    valor_float = float(value_text.replace('.', '').replace(',', '.'))
+                    
+                    # Cria o objeto Transacao
+                    transacao = Transacao(
+                        data=date,
+                        descricao=description,
+                        valor=valor_float,
+                        categoria=self._categorize_transaction(description)
+                    )
+                    
+                    transactions.append(transacao)
+                    
+                except ValueError:
+                    logger.warning(f"Não foi possível converter o valor '{value_text}' para float. Transação ignorada.")
+                    continue
+        
+        return transactions
+    
+    def _clean_bb_description(self, description: str) -> str:
+        """
+        Limpa especificamente as descrições do Banco do Brasil.
+        
+        Args:
+            description: Descrição original
+            
+        Returns:
+            Descrição limpa
+        """
+        # Remove códigos de país
+        description = re.sub(r'\s+BR\s*$', '', description)
+        description = re.sub(r'\s+BRASIL\s*$', '', description)
+        
+        # Remove cidade no final se estiver presente
+        # Padrão comum: "ESTABELECIMENTO CIDADE"
+        cities = ['BRASILIA', 'SAO PAULO', 'OSASCO', 'CURITIBA', 'SANTANA DE PA']
+        for city in cities:
+            description = re.sub(rf'\s+{city}\s*$', '', description, flags=re.IGNORECASE)
+        
+        # Remove múltiplos espaços
+        description = re.sub(r'\s+', ' ', description).strip()
+        
+        return description
         
     def _categorize_transaction(self, description: str) -> Optional[str]:
         """

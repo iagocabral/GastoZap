@@ -1,0 +1,167 @@
+{
+    "titular": "",
+    "numero_cartao": "1272",
+    "data_fechamento": null,
+    "data_vencimento": "01/07/2025",
+    "valor_total": "2030.08",
+    "banco": "banco_do_brasil",
+    "data_processamento": "2025-08-05 14:31:09",
+    "transacoes": [
+        {
+            "data": "27/05",
+            "descricao": "0 PARK DESINGDF",
+            "valor": 159.9,
+            "categoria": null
+        },
+        {
+            "data": "23/05",
+            "descricao": "BURGER KING",
+            "valor": 14.99,
+            "categoria": null
+        },
+        {
+            "data": "25/05",
+            "descricao": "ApacheGuara",
+            "valor": 65.0,
+            "categoria": null
+        },
+        {
+            "data": "27/05",
+            "descricao": "MP*DISTRITONATURAL",
+            "valor": 26.0,
+            "categoria": null
+        },
+        {
+            "data": "29/05",
+            "descricao": "UNIQUE FOODS",
+            "valor": 29.9,
+            "categoria": null
+        },
+        {
+            "data": "30/05",
+            "descricao": "ASA SUL 114",
+            "valor": 7.9,
+            "categoria": null
+        },
+        {
+            "data": "31/05",
+            "descricao": "ASA SUL 114",
+            "valor": 7.9,
+            "categoria": null
+        },
+        {
+            "data": "24/05",
+            "descricao": "DROGARIA BRASIL",
+            "valor": 35.36,
+            "categoria": "Saúde"
+        },
+        {
+            "data": "22/05",
+            "descricao": "REDE CINCO ESTRELAS",
+            "valor": 100.0,
+            "categoria": null
+        },
+        {
+            "data": "22/05",
+            "descricao": "APPLE.COM/BILL",
+            "valor": 21.9,
+            "categoria": null
+        },
+        {
+            "data": "28/05",
+            "descricao": "MP*CREDITT",
+            "valor": 89.9,
+            "categoria": null
+        },
+        {
+            "data": "28/05",
+            "descricao": "ALLPARK EMPREENDIMENTOSBrasilia",
+            "valor": 10.0,
+            "categoria": null
+        },
+        {
+            "data": "30/05",
+            "descricao": "COBASI",
+            "valor": 27.9,
+            "categoria": null
+        },
+        {
+            "data": "30/05",
+            "descricao": "POSTO SAO RAFAEL",
+            "valor": 100.0,
+            "categoria": null
+        },
+        {
+            "data": "02/06",
+            "descricao": "MP*ACASADOSREPAR",
+            "valor": 100.0,
+            "categoria": null
+        },
+        {
+            "data": "03/06",
+            "descricao": "MP*RMBORTOLETOCOMPONENTOSASCO",
+            "valor": 669.6,
+            "categoria": null
+        },
+        {
+            "data": "03/06",
+            "descricao": "EBN*CRUNCHYROLL",
+            "valor": 14.99,
+            "categoria": null
+        },
+        {
+            "data": "10/06",
+            "descricao": "MAISPET DF BRASILI",
+            "valor": 99.9,
+            "categoria": null
+        },
+        {
+            "data": "10/06",
+            "descricao": "LIVELO*Clube Live",
+            "valor": 44.9,
+            "categoria": null
+        },
+        {
+            "data": "13/06",
+            "descricao": "APPLE.COM/BILL",
+            "valor": 14.9,
+            "categoria": null
+        },
+        {
+            "data": "14/06",
+            "descricao": "APPLE.COM/BILL",
+            "valor": 27.9,
+            "categoria": null
+        },
+        {
+            "data": "27/05",
+            "descricao": "CARREFOUR - BRASILIA S",
+            "valor": 117.29,
+            "categoria": null
+        },
+        {
+            "data": "08/06",
+            "descricao": "AmazonPrimeBR",
+            "valor": 19.9,
+            "categoria": null
+        },
+        {
+            "data": "10/06",
+            "descricao": "DL*GOOGLE YouTub",
+            "valor": 26.9,
+            "categoria": null
+        },
+        {
+            "data": "16/06",
+            "descricao": "ANUIDADE DIFERENCIADA TIT-PARC 02/12",
+            "valor": 19.5,
+            "categoria": null
+        },
+        {
+            "data": "08/05",
+            "descricao": "MODA MUNDIAL* PARC 02/02",
+            "valor": 177.65,
+            "categoria": null
+        }
+    ]
+}

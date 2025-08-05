@@ -1,0 +1,47 @@
+{
+    "titular": "",
+    "numero_cartao": "1272",
+    "data_fechamento": null,
+    "data_vencimento": "01/07/2025",
+    "valor_total": "314.15",
+    "banco": "string",
+    "data_processamento": "2025-08-05 14:29:25",
+    "transacoes": [
+        {
+            "data": "22/05",
+            "descricao": "APPLE.COM/BILL SAO PAULO",
+            "valor": 21.9,
+            "categoria": null
+        },
+        {
+            "data": "10/06",
+            "descricao": "LIVELO*Clube Live SANTANA DE PA",
+            "valor": 44.9,
+            "categoria": null
+        },
+        {
+            "data": "13/06",
+            "descricao": "APPLE.COM/BILL SAO PAULO",
+            "valor": 14.9,
+            "categoria": null
+        },
+        {
+            "data": "14/06",
+            "descricao": "APPLE.COM/BILL SAO PAULO",
+            "valor": 27.9,
+            "categoria": null
+        },
+        {
+            "data": "10/06",
+            "descricao": "DL*GOOGLE YouTub SAO PAULO",
+            "valor": 26.9,
+            "categoria": null
+        },
+        {
+            "data": "02/02",
+            "descricao": "Sao Paulo",
+            "valor": 177.65,
+            "categoria": null
+        }
+    ]
+}

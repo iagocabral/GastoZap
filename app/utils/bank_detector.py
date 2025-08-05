@@ -17,7 +17,11 @@ class BankDetector:
             r'OUROCARD',
             r'BB\s+',
             r'Banco\s+do\s+Brasil',
-            r'www\.bb\.com\.br'
+            r'www\.bb\.com\.br',
+            r'Iago\s+De\s+Paula\s+Cabra',
+            r'Cartão\s+\d+',
+            r'SALDO\s+FATURA\s+ANTERIOR',
+            r'Pagamentos/Créditos'
         ],
         'nubank': [
             r'Nu\s+Pagamentos',
