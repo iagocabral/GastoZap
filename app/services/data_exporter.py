@@ -4,7 +4,6 @@ from typing import Dict, Any, Optional, List
 import os
 import logging
 from datetime import datetime
-from app.utils.pdf_utils import format_currency
 from app.core.config import EXPORTS_DIR
 
 logger = logging.getLogger(__name__)
@@ -66,26 +65,32 @@ class DataExporter:
             with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
                 # Planilha de resumo
                 resumo = {
-                    'Titular': [data.get('titular', 'Não informado')],
-                    'Número do Cartão': [data.get('numero_cartao', 'Não informado')],
-                    'Data de Fechamento': [data.get('data_fechamento', 'Não informado')],
-                    'Valor Total': [format_currency(float(data.get('valor_total', '0')))],
-                    'Data de Processamento': [data.get('data_processamento', datetime.now().strftime("%Y-%m-%d %H:%M:%S"))],
+                    'Campo': ['Titular', 'Número do Cartão', 'Data de Fechamento', 'Data de Vencimento', 'Valor Total', 'Banco', 'Data de Processamento'],
+                    'Valor': [
+                        data.get('titular', 'Não informado'),
+                        data.get('numero_cartao', 'Não informado'),
+                        data.get('data_fechamento', 'Não informado'),
+                        data.get('data_vencimento', 'Não informado'),
+                        data.get('valor_total', 'Não informado'),
+                        data.get('banco', 'Não informado'),
+                        data.get('data_processamento', datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                    ]
                 }
-                pd.DataFrame(resumo).to_excel(writer, sheet_name='Resumo', index=False)
+                
+                resumo_df = pd.DataFrame(resumo)
+                resumo_df.to_excel(writer, sheet_name='Resumo', index=False)
                 
                 # Planilha de transações
-                if data.get('transacoes'):
+                if data.get('transacoes') and len(data['transacoes']) > 0:
                     transacoes_df = pd.DataFrame(data['transacoes'])
-                    
-                    # Formatação das colunas
-                    if 'valor' in transacoes_df.columns:
-                        transacoes_df['valor'] = transacoes_df['valor'].apply(lambda x: format_currency(x))
-                    
                     transacoes_df.to_excel(writer, sheet_name='Transações', index=False)
-                
-                # Adiciona uma planilha de análise por categorias (se houver)
-                self._add_category_analysis(writer, data.get('transacoes', []))
+                    
+                    # Adiciona uma planilha de análise por categorias (se houver)
+                    self._add_category_analysis(writer, data.get('transacoes', []))
+                else:
+                    # Se não há transações, cria uma planilha vazia
+                    empty_df = pd.DataFrame({'Mensagem': ['Nenhuma transação encontrada']})
+                    empty_df.to_excel(writer, sheet_name='Transações', index=False)
             
             logger.info(f"Dados exportados para Excel: {output_path}")
             return output_path
@@ -102,36 +107,38 @@ class DataExporter:
             writer: ExcelWriter aberto
             transacoes: Lista de transações
         """
-        # Verifica se há transações e se possuem a propriedade categoria
-        if not transacoes or 'categoria' not in transacoes[0]:
+        # Verifica se há transações
+        if not transacoes:
             return
             
-        # Cria DataFrame
-        df = pd.DataFrame(transacoes)
-        
-        # Agrupa por categoria e soma os valores
         try:
-            categoria_df = df.groupby('categoria', dropna=False)['valor'].agg(['sum', 'count'])
-            categoria_df.columns = ['Valor Total', 'Quantidade']
-            categoria_df = categoria_df.reset_index()
+            # Cria DataFrame
+            df = pd.DataFrame(transacoes)
             
-            # Renomeia categoria None para 'Não Categorizado'
-            categoria_df['categoria'].fillna('Não Categorizado', inplace=True)
+            # Verifica se existe a coluna categoria
+            if 'categoria' not in df.columns:
+                df['categoria'] = 'Não Categorizado'
             
-            # Formata o valor
-            categoria_df['Valor Total'] = categoria_df['Valor Total'].apply(lambda x: format_currency(x))
+            # Verifica se existe a coluna valor
+            if 'valor' not in df.columns:
+                return
+            
+            # Substitui valores None por 'Não Categorizado'
+            df['categoria'].fillna('Não Categorizado', inplace=True)
+            
+            # Agrupa por categoria e soma os valores
+            categoria_df = df.groupby('categoria')['valor'].agg(['sum', 'count']).reset_index()
+            categoria_df.columns = ['Categoria', 'Valor Total', 'Quantidade']
             
             # Ordena por valor total (decrescente)
             categoria_df = categoria_df.sort_values(by='Valor Total', ascending=False)
-            
-            # Renomeia as colunas
-            categoria_df.rename(columns={'categoria': 'Categoria'}, inplace=True)
             
             # Adiciona ao Excel
             categoria_df.to_excel(writer, sheet_name='Análise por Categoria', index=False)
             
         except Exception as e:
             logger.warning(f"Não foi possível gerar a análise por categorias: {str(e)}")
+            # Se falhar, não interrompe o processo, apenas não adiciona a planilha
     
     def generate_report(self, data: Dict[str, Any], output_format: str = "json") -> str:
         """
