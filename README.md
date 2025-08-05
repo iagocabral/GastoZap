@@ -5,6 +5,8 @@ Uma API para extração de dados de faturas de cartão de crédito em PDF e expo
 ## Funcionalidades
 
 - Upload de faturas de cartão de crédito em PDF
+- Detecção automática do banco emissor da fatura
+- Suporte para diferentes formatos de fatura (Banco do Brasil, etc.)
 - Extração automática de informações como titular, número do cartão, data de fechamento, valor total e transações
 - Categorização automática de transações
 - Exportação dos dados para JSON ou Excel
@@ -108,3 +110,31 @@ curl -X POST "http://localhost:8000/api/batch-process/" \
 - Adicionar suporte para mais formatos de fatura
 - Implementar autenticação e multi-usuário
 - Adicionar suporte para análise histórica de gastos
+
+## Bancos Suportados
+
+Atualmente, o sistema suporta as seguintes instituições financeiras:
+
+- Banco do Brasil
+- Nubank (parcial)
+- Itaú (parcial)
+- Bradesco (parcial)
+- Santander (parcial)
+
+Para adicionar suporte a um novo banco, é necessário:
+
+1. Adicionar os padrões de detecção no `BankDetector`
+2. Adicionar os padrões de extração no `PDFExtractor`
+3. Testar com faturas reais do banco
+
+## API Endpoints
+
+### Detecção de Banco
+- `GET /banks/` - Lista os bancos suportados
+- `POST /detect-bank/` - Detecta o banco emissor de uma fatura
+- `GET /bank-patterns/{bank_id}` - Obtém os padrões de extração para um banco específico
+
+### Processamento de Faturas
+- `POST /upload-invoice/` - Processa uma única fatura
+- `POST /batch-process/` - Processa múltiplas faturas
+- `GET /health/` - Verifica a saúde da aplicação

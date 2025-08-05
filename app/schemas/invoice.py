@@ -13,9 +13,18 @@ class FaturaCartao(BaseModel):
     titular: Optional[str] = Field(None, description="Nome do titular do cartão")
     numero_cartao: Optional[str] = Field(None, description="Número do cartão (mascarado)")
     data_fechamento: Optional[str] = Field(None, description="Data de fechamento da fatura")
+    data_vencimento: Optional[str] = Field(None, description="Data de vencimento da fatura")
     valor_total: Optional[str] = Field(None, description="Valor total da fatura")
+    banco: Optional[str] = Field(None, description="Identificador do banco emissor da fatura")
     transacoes: List[Transacao] = Field(default_factory=list, description="Lista de transações")
 
 class ExportRequest(BaseModel):
     """Esquema para solicitação de exportação"""
     export_format: str = Field("json", description="Formato de exportação (json ou excel)")
+
+class BankResponse(BaseModel):
+    """Esquema para resposta de detecção de banco"""
+    detected: bool = Field(..., description="Indica se um banco foi detectado")
+    bank_id: Optional[str] = Field(None, description="ID do banco detectado")
+    bank_name: Optional[str] = Field(None, description="Nome do banco detectado")
+    message: Optional[str] = Field(None, description="Mensagem informativa quando não foi possível detectar")

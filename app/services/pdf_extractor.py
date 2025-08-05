@@ -4,6 +4,7 @@ from typing import Dict, List, Any, Optional
 import logging
 from app.models.invoice import Fatura, Transacao
 from app.utils.pdf_utils import PDFValidator
+from app.utils.bank_detector import BankDetector
 
 logger = logging.getLogger(__name__)
 
@@ -12,16 +13,36 @@ class PDFExtractor:
     Classe responsável por extrair dados de faturas de cartão de crédito em PDF.
     """
     
-    def extract(self, pdf_path: str) -> Dict[str, Any]:
+    # Mapeamento de bancos para expressões regulares específicas
+    BANK_EXTRACTORS = {
+        'banco_do_brasil': {
+            'titular': r"Nome:\s*([^\n]*)",
+            'numero_cartao': r"Cartão:\s*([•\*\d]+)",
+            'data_fechamento': r"Fechamento:\s*(\d{2}/\d{2}/\d{4})",
+            'data_vencimento': r"Vencimento\s*(\d{2}/\d{2}/\d{4})",
+            'valor_total': r"Total\s*R\$\s*([\d\.,]+)",
+            'transacao_pattern': r"(\d{2}/\d{2})\s+([^\d]+?)\s+(R?\$?\s*[\d\.,]+)"
+        },
+        # Outros bancos serão adicionados no futuro
+    }
+    
+    def extract(self, pdf_path: str, bank_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Extrai dados de uma fatura de cartão de crédito em PDF.
         
         Args:
             pdf_path: Caminho para o arquivo PDF
+            bank_id: Identificador do banco emissor da fatura (opcional)
             
         Returns:
             Um dicionário com os dados extraídos
         """
+        # Detecta o banco se não for especificado
+        if not bank_id:
+            bank_id = BankDetector.detect_bank(pdf_path)
+            if not bank_id:
+                logger.warning("Não foi possível identificar o banco automaticamente. Usando padrões genéricos.")
+                bank_id = 'generic'
         try:
             logger.info(f"Iniciando extração do arquivo: {pdf_path}")
             
@@ -34,6 +55,7 @@ class PDFExtractor:
                 
                 # Instancia o modelo da fatura
                 fatura = Fatura()
+                fatura.banco = bank_id
                 
                 # Processa cada página do PDF
                 full_text = ""
@@ -41,16 +63,21 @@ class PDFExtractor:
                     page = reader.pages[page_num]
                     text = page.extract_text()
                     full_text += text
-                    
-                # Extrai informações básicas usando expressões regulares
-                # Nota: Essas expressões precisarão ser adaptadas com base no formato real da fatura
-                fatura.titular = self._extract_pattern(full_text, r"Nome:\s*([^\n]*)")
-                fatura.numero_cartao = self._extract_pattern(full_text, r"Cartão:\s*([•\*\d]+)")
-                fatura.data_fechamento = self._extract_pattern(full_text, r"Fechamento:\s*(\d{2}/\d{2}/\d{4})")
-                fatura.valor_total = self._extract_pattern(full_text, r"Total:\s*R\$\s*([\d\.,]+)")
                 
-                # Extrai transações
-                transacoes = self._extract_transactions(full_text)
+                # Obtém os padrões específicos para o banco identificado
+                patterns = self.BANK_EXTRACTORS.get(bank_id, self.BANK_EXTRACTORS.get('banco_do_brasil'))
+                logger.info(f"Usando padrões do banco: {bank_id}")
+                
+                # Extrai informações básicas usando expressões regulares específicas do banco
+                fatura.titular = self._extract_pattern(full_text, patterns.get('titular', r"Nome:\s*([^\n]*)"))
+                fatura.numero_cartao = self._extract_pattern(full_text, patterns.get('numero_cartao', r"Cartão:\s*([•\*\d]+)"))
+                fatura.data_fechamento = self._extract_pattern(full_text, patterns.get('data_fechamento', r"Fechamento:\s*(\d{2}/\d{2}/\d{4})"))
+                fatura.data_vencimento = self._extract_pattern(full_text, patterns.get('data_vencimento', r"Vencimento\s*(\d{2}/\d{2}/\d{4})"))
+                fatura.valor_total = self._extract_pattern(full_text, patterns.get('valor_total', r"Total\s*R\$\s*([\d\.,]+)"))
+                
+                # Extrai transações usando o padrão específico do banco
+                transacao_pattern = patterns.get('transacao_pattern', r"(\d{2}/\d{2})\s+([^\d]+?)\s+(R?\$?\s*[\d\.,]+)")
+                transacoes = self._extract_transactions(full_text, transacao_pattern)
                 for transacao in transacoes:
                     fatura.adicionar_transacao(transacao)
                 
@@ -82,39 +109,54 @@ class PDFExtractor:
             return match.group(1).strip()
         return None
     
-    def _extract_transactions(self, text: str) -> List[Transacao]:
+    def _extract_transactions(self, text: str, transaction_pattern: str = None) -> List[Transacao]:
         """
         Extrai as transações da fatura.
-        Este método precisa ser adaptado com base no formato real das transações na fatura.
+        Este método usa o padrão específico do banco para extrair as transações.
         
         Args:
             text: Texto completo da fatura
+            transaction_pattern: Padrão de expressão regular para encontrar transações
             
         Returns:
             Lista de objetos Transacao
         """
         transactions = []
         
-        # Padrão exemplo para encontrar transações
-        # Formato: DD/MM Descrição do estabelecimento 999,99
-        transaction_pattern = r"(\d{2}/\d{2})\s+([^\d]+)\s+([\d\.,]+)"
+        if not transaction_pattern:
+            # Padrão padrão para encontrar transações
+            # Formato: DD/MM Descrição do estabelecimento 999,99
+            transaction_pattern = r"(\d{2}/\d{2})\s+([^\d]+)\s+([\d\.,]+)"
         
         matches = re.finditer(transaction_pattern, text)
         for match in matches:
             if len(match.groups()) >= 3:
                 date = match.group(1)
                 description = match.group(2).strip()
-                value = match.group(3).replace('.', '').replace(',', '.')
                 
-                # Criamos um objeto Transacao
-                transacao = Transacao(
-                    data=date,
-                    descricao=description,
-                    valor=float(value),
-                    categoria=self._categorize_transaction(description)
-                )
+                # Trata o valor que pode ter formatos diferentes
+                value_text = match.group(3).strip()
+                # Remove prefixos comuns como "R$" ou "$"
+                value_text = re.sub(r'^R\$\s*', '', value_text)
+                value_text = re.sub(r'^\$\s*', '', value_text)
+                # Normaliza o valor para formato decimal com ponto
+                value = value_text.replace('.', '').replace(',', '.')
                 
-                transactions.append(transacao)
+                try:
+                    # Tenta converter para float
+                    valor_float = float(value)
+                    
+                    # Criamos um objeto Transacao
+                    transacao = Transacao(
+                        data=date,
+                        descricao=description,
+                        valor=valor_float,
+                        categoria=self._categorize_transaction(description)
+                    )
+                    
+                    transactions.append(transacao)
+                except ValueError:
+                    logger.warning(f"Não foi possível converter o valor '{value}' para float. Transação ignorada.")
         
         return transactions
         

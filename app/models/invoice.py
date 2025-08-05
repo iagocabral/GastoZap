@@ -26,7 +26,9 @@ class Fatura:
     titular: Optional[str] = None
     numero_cartao: Optional[str] = None
     data_fechamento: Optional[str] = None
+    data_vencimento: Optional[str] = None
     valor_total: Optional[str] = None
+    banco: Optional[str] = None
     transacoes: List[Transacao] = field(default_factory=list)
     data_processamento: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     
@@ -44,7 +46,9 @@ class Fatura:
             "titular": self.titular,
             "numero_cartao": self.numero_cartao,
             "data_fechamento": self.data_fechamento,
+            "data_vencimento": self.data_vencimento,
             "valor_total": self.valor_total,
+            "banco": self.banco,
             "data_processamento": self.data_processamento,
             "transacoes": [t.to_dict() for t in self.transacoes]
         }

@@ -2,12 +2,14 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Backgro
 from fastapi.responses import JSONResponse, FileResponse
 import os
 import uuid
-from typing import Optional, List
+import pandas as pd
+from typing import Optional, List, Dict
 from pydantic import ValidationError
 
 from app.services.pdf_extractor import PDFExtractor
 from app.services.data_exporter import DataExporter
 from app.utils.pdf_utils import cleanup_temp_files
+from app.utils.bank_detector import BankDetector
 from app.schemas.invoice import ExportRequest, FaturaCartao
 
 router = APIRouter()
@@ -16,11 +18,18 @@ router = APIRouter()
 async def upload_invoice(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    export_format: str = Form("json")
+    export_format: str = Form("json"),
+    bank_id: Optional[str] = Form(None)
 ):
     """
     Endpoint para upload de faturas de cartão em PDF.
     Retorna os dados extraídos no formato especificado (json ou excel).
+    
+    Args:
+        background_tasks: Tarefas em segundo plano
+        file: Arquivo PDF da fatura
+        export_format: Formato de exportação (json ou excel)
+        bank_id: ID do banco emissor da fatura (opcional)
     """
     if not file.filename.lower().endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Apenas arquivos PDF são aceitos")
@@ -40,9 +49,15 @@ async def upload_invoice(
         buffer.write(content)
     
     try:
+        # Se o banco não foi especificado, tenta detectá-lo automaticamente
+        if not bank_id:
+            detected_bank = BankDetector.detect_bank(temp_path)
+            if detected_bank:
+                bank_id = detected_bank
+        
         # Extrai os dados do PDF
         extractor = PDFExtractor()
-        extracted_data = extractor.extract(temp_path)
+        extracted_data = extractor.extract(temp_path, bank_id)
         
         # Valida os dados extraídos
         try:
@@ -80,6 +95,54 @@ async def upload_invoice(
 async def health_check():
     """Endpoint para verificar a saúde da aplicação"""
     return {"status": "ok", "version": "0.1.0"}
+    
+@router.get("/banks/")
+async def list_banks():
+    """
+    Retorna a lista de bancos disponíveis para extração de faturas.
+    """
+    available_banks = BankDetector.get_available_banks()
+    return {"banks": available_banks}
+    
+@router.post("/detect-bank/")
+async def detect_bank(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...)
+):
+    """
+    Detecta o banco emissor de uma fatura de cartão em PDF.
+    """
+    if not file.filename.lower().endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Apenas arquivos PDF são aceitos")
+    
+    # Gera um ID único para este processamento
+    process_id = str(uuid.uuid4())
+    
+    # Salva o arquivo temporariamente
+    temp_path = os.path.join("app/static/uploads", f"temp_{process_id}.pdf")
+    os.makedirs(os.path.dirname(temp_path), exist_ok=True)
+    
+    with open(temp_path, "wb") as buffer:
+        content = await file.read()
+        buffer.write(content)
+    
+    try:
+        # Detecta o banco
+        bank_id = BankDetector.detect_bank(temp_path)
+        available_banks = BankDetector.get_available_banks()
+        
+        if bank_id:
+            bank_name = available_banks.get(bank_id, bank_id)
+            return {"detected": True, "bank_id": bank_id, "bank_name": bank_name}
+        else:
+            return {"detected": False, "message": "Não foi possível identificar o banco emissor da fatura"}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao processar o arquivo: {str(e)}")
+    
+    finally:
+        # Adiciona tarefa para limpar os arquivos temporários
+        background_tasks.add_task(cleanup_temp_files, [temp_path])
     
 @router.post("/batch-process/")
 async def batch_process(
@@ -177,3 +240,22 @@ async def batch_process(
     finally:
         # Adiciona tarefa para limpar os arquivos temporários
         background_tasks.add_task(cleanup_temp_files, temp_files)
+
+@router.get("/bank-patterns/{bank_id}")
+async def get_bank_patterns(bank_id: str):
+    """
+    Retorna os padrões de expressão regular específicos de um banco para extração de faturas.
+    
+    Args:
+        bank_id: ID do banco
+    """
+    extractor = PDFExtractor()
+    
+    if bank_id in extractor.BANK_EXTRACTORS:
+        return {"bank_id": bank_id, "patterns": extractor.BANK_EXTRACTORS[bank_id]}
+    else:
+        available_banks = list(extractor.BANK_EXTRACTORS.keys())
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Banco não encontrado. Bancos disponíveis: {available_banks}"
+        )
